@@ -20,7 +20,7 @@ import * as net from "net";
 
 import char, * as chars from "./chars";
 import {resolveErrorCode} from "./errors/resolve";
-import {ReadMessageBuffer, WriteMessageBuffer, ReadBuffer} from "./buffer";
+import {ReadMessageBuffer, WriteMessageBuffer, ReadBuffer, asInt16} from "./buffer";
 import {CodecsRegistry} from "./codecs/registry";
 import {ICodec, uuid} from "./codecs/ifaces";
 import {Set} from "./datatypes/set";
@@ -55,6 +55,12 @@ type QueryArgPrimitive =
   | UUID;
 type QueryArg = QueryArgPrimitive | QueryArgPrimitive[] | null;
 type QueryArgs = {[_: string]: QueryArg} | QueryArg[] | null;
+
+type QueryOpts = {
+  implicitLimit?: number
+};
+
+const QUERY_OPT_IMPLICIT_LIMIT = asInt16(0xFF01)
 
 enum AuthenticationStatuses {
   AUTH_OK = 0,
@@ -553,12 +559,17 @@ export class AwaitConnection {
   private async _parse(
     query: string,
     asJson: boolean,
-    expectOne: boolean
+    expectOne: boolean,
+    implicitLimit: number = 0
   ): Promise<[number, ICodec, ICodec]> {
     const wb = new WriteMessageBuffer();
 
     wb.beginMessage(chars.$P)
-      .writeInt16(0) // no headers
+      .writeHeaders(
+        implicitLimit ? [
+          [QUERY_OPT_IMPLICIT_LIMIT, implicitLimit]
+        ] : []
+      )
       .writeChar(asJson ? chars.$j : chars.$b)
       .writeChar(expectOne ? chars.$o : chars.$m)
       .writeString("") // statement name
@@ -768,11 +779,16 @@ export class AwaitConnection {
     expectOne: boolean,
     inCodec: ICodec,
     outCodec: ICodec,
-    query: string
+    query: string,
+    implicitLimit: number = 0
   ): Promise<any> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$O);
-    wb.writeInt16(0); // no headers
+    wb.writeHeaders(
+      implicitLimit ? [
+        [QUERY_OPT_IMPLICIT_LIMIT, implicitLimit]
+      ] : []
+    )
     wb.writeChar(asJson ? chars.$j : chars.$b);
     wb.writeChar(expectOne ? chars.$o : chars.$m);
     wb.writeString(query);
@@ -876,7 +892,8 @@ export class AwaitConnection {
     query: string,
     args: QueryArgs,
     asJson: boolean,
-    expectOne: boolean
+    expectOne: boolean,
+    implicitLimit?: number
   ): Promise<any> {
     const key = this._getQueryCacheKey(query, asJson, expectOne);
     let ret;
@@ -890,13 +907,15 @@ export class AwaitConnection {
         expectOne,
         inCodec,
         outCodec,
-        query
+        query,
+        implicitLimit
       );
     } else {
       const [card, inCodec, outCodec] = await this._parse(
         query,
         asJson,
-        expectOne
+        expectOne,
+        implicitLimit
       );
       this._validateFetchCardinality(card, asJson, expectOne);
       this.queryCodecCache.set(key, [card, inCodec, outCodec]);
@@ -995,37 +1014,37 @@ export class AwaitConnection {
     }
   }
 
-  async fetchAll(query: string, args: QueryArgs = null): Promise<Set> {
+  async fetchAll(query: string, args: QueryArgs = null, options?: QueryOpts): Promise<Set> {
     this._enterOp();
     try {
-      return await this._fetch(query, args, false, false);
+      return await this._fetch(query, args, false, false, options?.implicitLimit);
     } finally {
       this._leaveOp();
     }
   }
 
-  async fetchOne(query: string, args: QueryArgs = null): Promise<any> {
+  async fetchOne(query: string, args: QueryArgs = null, options?: QueryOpts): Promise<any> {
     this._enterOp();
     try {
-      return await this._fetch(query, args, false, true);
+      return await this._fetch(query, args, false, true, options?.implicitLimit);
     } finally {
       this._leaveOp();
     }
   }
 
-  async fetchAllJSON(query: string, args: QueryArgs = null): Promise<string> {
+  async fetchAllJSON(query: string, args: QueryArgs = null, options?: QueryOpts): Promise<string> {
     this._enterOp();
     try {
-      return await this._fetch(query, args, true, false);
+      return await this._fetch(query, args, true, false, options?.implicitLimit);
     } finally {
       this._leaveOp();
     }
   }
 
-  async fetchOneJSON(query: string, args: QueryArgs = null): Promise<string> {
+  async fetchOneJSON(query: string, args: QueryArgs = null, options?: QueryOpts): Promise<string> {
     this._enterOp();
     try {
-      return await this._fetch(query, args, true, true);
+      return await this._fetch(query, args, true, true, options?.implicitLimit);
     } finally {
       this._leaveOp();
     }
@@ -1137,48 +1156,72 @@ export class Connection {
       .catch((error) => (callback != null ? callback(error, null) : null));
   }
 
+  fetchOne(query: string, args: QueryArgs, callback?: NodeCallback | null): void
+  fetchOne(query: string, args: QueryArgs, options: QueryOpts, callback?: NodeCallback | null): void
   fetchOne(
     query: string,
     args: QueryArgs,
+    optsOrCallback: QueryOpts | NodeCallback | null = null,
     callback: NodeCallback | null = null
   ): void {
+    const opts = (optsOrCallback !== null && typeof optsOrCallback === 'object') ?
+                  optsOrCallback : undefined,
+          cb = opts !== undefined ? callback : (optsOrCallback as NodeCallback | null);
     this._conn
-      .fetchOne(query, args)
-      .then((value) => (callback != null ? callback(null, value) : null))
-      .catch((error) => (callback != null ? callback(error, null) : null));
+      .fetchOne(query, args, opts)
+      .then((value) => (cb != null ? cb(null, value) : null))
+      .catch((error) => (cb != null ? cb(error, null) : null));
   }
 
+  fetchAll(query: string, args: QueryArgs, callback?: NodeCallback<Set> | null): void
+  fetchAll(query: string, args: QueryArgs, options: QueryOpts, callback?: NodeCallback<Set> | null): void
   fetchAll(
     query: string,
     args: QueryArgs,
+    optsOrCallback: QueryOpts | NodeCallback<Set> | null = null,
     callback: NodeCallback<Set> | null = null
   ): void {
+    const opts = (optsOrCallback !== null && typeof optsOrCallback === 'object') ?
+                  optsOrCallback : undefined,
+          cb = opts !== undefined ? callback : (optsOrCallback as NodeCallback<Set> | null);
     this._conn
-      .fetchAll(query, args)
-      .then((value) => (callback != null ? callback(null, value) : null))
-      .catch((error) => (callback != null ? callback(error, null) : null));
+      .fetchAll(query, args, opts)
+      .then((value) => (cb != null ? cb(null, value) : null))
+      .catch((error) => (cb != null ? cb(error, null) : null));
   }
 
+  fetchOneJSON(query: string, args: QueryArgs, callback?: NodeCallback<string> | null): void
+  fetchOneJSON(query: string, args: QueryArgs, options: QueryOpts, callback?: NodeCallback<string> | null): void
   fetchOneJSON(
     query: string,
     args: QueryArgs,
+    optsOrCallback: QueryOpts | NodeCallback<string> | null = null,
     callback: NodeCallback<string> | null = null
   ): void {
+    const opts = (optsOrCallback !== null && typeof optsOrCallback === 'object') ?
+                  optsOrCallback : undefined,
+          cb = opts !== undefined ? callback : (optsOrCallback as NodeCallback<string> | null);
     this._conn
-      .fetchOneJSON(query, args)
-      .then((value) => (callback != null ? callback(null, value) : null))
-      .catch((error) => (callback != null ? callback(error, null) : null));
+      .fetchOneJSON(query, args, opts)
+      .then((value) => (cb != null ? cb(null, value) : null))
+      .catch((error) => (cb != null ? cb(error, null) : null));
   }
 
+  fetchAllJSON(query: string, args: QueryArgs, callback?: NodeCallback<string> | null): void
+  fetchAllJSON(query: string, args: QueryArgs, options: QueryOpts, callback?: NodeCallback<string> | null): void
   fetchAllJSON(
     query: string,
     args: QueryArgs,
+    optsOrCallback: QueryOpts | NodeCallback<string> | null = null,
     callback: NodeCallback<string> | null = null
   ): void {
+    const opts = (optsOrCallback !== null && typeof optsOrCallback === 'object') ?
+                  optsOrCallback : undefined,
+          cb = opts !== undefined ? callback : (optsOrCallback as NodeCallback<string> | null);
     this._conn
-      .fetchAllJSON(query, args)
-      .then((value) => (callback ? callback(null, value) : null))
-      .catch((error) => (callback ? callback(error, null) : null));
+      .fetchAllJSON(query, args, opts)
+      .then((value) => (cb ? cb(null, value) : null))
+      .catch((error) => (cb ? cb(error, null) : null));
   }
 
   close(callback: NodeCallback<null> | null = null): void {
