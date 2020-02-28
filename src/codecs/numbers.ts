@@ -21,15 +21,15 @@ import {ICodec, ScalarCodec} from "./ifaces";
 
 export class Int64Codec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
-    if (typeof object !== "number") {
-      throw new Error(`a number was expected, got "${object}"`);
+    if (typeof object !== "bigint") {
+      throw new Error(`a bigint was expected, got "${object}"`);
     }
     buf.writeInt32(8);
-    buf.writeInt64(object);
+    buf.writeBigInt64(object);
   }
 
   decode(buf: ReadBuffer): any {
-    return buf.readInt64();
+    return buf.readBigInt64();
   }
 }
 
