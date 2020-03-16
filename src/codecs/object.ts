@@ -29,12 +29,14 @@ const EDGE_POINTER_IS_LINKPROP = 1 << 1;
 export class ObjectCodec extends Codec implements ICodec {
   private codecs: ICodec[];
   private names: string[];
+  private flags: number[];
   private objectType: ObjectConstructor;
 
   constructor(tid: uuid, codecs: ICodec[], names: string[], flags: number[]) {
     super(tid);
 
     this.codecs = codecs;
+    this.flags = flags;
 
     const newNames: string[] = new Array(names.length);
     for (let i = 0; i < names.length; i++) {
