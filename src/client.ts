@@ -989,6 +989,223 @@ export class AwaitConnection {
     this.opInProgress = false;
   }
 
+  async _dump(
+    headerCallback: (buf: Buffer) => Promise<void>,
+    blockCallback: (buf: Buffer) => Promise<void>
+  ): Promise<void> {
+    const wb = new WriteMessageBuffer();
+    wb.beginMessage(chars.$DUMP)
+      .writeInt16(0) // no headers
+      .endMessage()
+      .writeSync();
+    
+    this.sock.write(wb.unwrap());
+
+    let headerReceived = false;
+    let dataReceived = false;
+    let parsing = true;
+    let error: Error | null = null;
+
+    while (parsing) {
+      if (!this.buffer.takeMessage()) {
+        await this._waitForMessage();
+      }
+
+      const mtype = this.buffer.getMessageType();
+
+      try {
+        switch (mtype) {
+          case chars.$DUMP_DATA_BLOCK: {
+            if (!headerReceived) {
+              throw new Error('data block received before header block');
+            }
+            dataReceived = true;
+
+            await blockCallback(this.buffer.consumeMessage());
+            break;
+          }
+
+          case chars.$DUMP_HEADER_BLOCK: {
+            if (headerReceived) {
+              throw new Error('more than one header block received');
+            }
+            if (dataReceived) {
+              throw new Error('header block received after data block');
+            }
+            headerReceived = true;
+
+            await headerCallback(this.buffer.consumeMessage());
+            break;
+          }
+
+          case chars.$E: {
+            error = this._parseErrorMessage();
+            break;
+          }
+
+          case chars.$C: {
+            this.lastStatus = this._parseCommandCompleteMessage();
+            break;
+          }
+
+          case chars.$Z: {
+            this._parseSyncMessage();
+            parsing = false;
+            break;
+          }
+        
+          default:
+            this._fallthrough();
+        }
+      } finally {
+        this.buffer.finishMessage();
+      }
+    }
+
+    if (!headerReceived) {
+      throw new Error('header block was not received')
+    }
+
+    if (error !== null) {
+      throw error;
+    }
+  }
+
+  async _restore(
+    header: Buffer,
+    dataGen: AsyncIterable<Buffer>
+  ): Promise<void> {
+    const wb = new WriteMessageBuffer();
+    wb.beginMessage(chars.$RESTORE)
+      .writeInt16(0) // no headers
+      .writeInt16(1) // -j level
+      .writeBuffer(header)
+      .endMessage();
+
+    this.sock.write(wb.unwrap());
+
+    let parsing = true;
+    let error: Error | null = null;
+
+    while (parsing) {
+      if (!this.buffer.takeMessage()) {
+        await this._waitForMessage();
+      }
+
+      const mtype = this.buffer.getMessageType();
+
+      try {
+        switch (mtype) {
+          case chars.$RESTORE_READY: {
+            this._rejectHeaders();
+            this.buffer.readInt16(); // discard -j level
+            parsing = false;
+            break;
+          }
+          
+          case chars.$E: {
+            error = this._parseErrorMessage();
+            parsing = false;
+            break;
+          }
+
+          default:
+            this._fallthrough();
+        }
+      } finally {
+        this.buffer.finishMessage();
+      }
+    }
+
+    if (error !== null) {
+      throw error;
+    }
+
+    let drainWaiter: Promise<void> = Promise.resolve();
+
+    for await (const data of dataGen) {
+      const wb = new WriteMessageBuffer();
+      wb.beginMessage(chars.$DUMP_DATA_BLOCK)
+        .writeBuffer(data)
+        .endMessage();
+
+      // Since the protocol here doesn't wait for a message back from the server,
+      // wait for the socket write buffer to drain before writing next data block
+      await drainWaiter;
+
+      drainWaiter = new Promise((resolve, reject) => {
+        this.sock.write(wb.unwrap(), (err) => {
+          if (err) return reject(err);
+          resolve();
+        })
+      })
+
+      if (this.buffer.takeMessage()) {
+        const mtype = this.buffer.getMessageType();
+
+        switch (mtype) {
+          case chars.$E: {
+            error = this._parseErrorMessage();
+            this.buffer.finishMessage();
+            break;
+          }
+
+          default:
+            this._fallthrough();
+        }
+      }
+
+      if (error !== null) break;
+    }
+
+    if (error !== null) {
+      throw error;
+    }
+
+    await drainWaiter;
+
+    this.sock.write(
+      new WriteMessageBuffer()
+        .beginMessage(chars.$RESTORE_EOF)
+        .endMessage()
+        .unwrap()
+    );
+
+    parsing = true;
+    while (parsing) {
+      if (!this.buffer.takeMessage()) {
+        await this._waitForMessage();
+      }
+
+      const mtype = this.buffer.getMessageType();
+
+      try {
+        switch (mtype) {
+          case chars.$C: {
+            this.lastStatus = this._parseCommandCompleteMessage();
+            parsing = false;
+            break;
+          }
+          
+          case chars.$E: {
+            error = this._parseErrorMessage();
+            parsing = false;
+            break;
+          }
+
+          default:
+            this._fallthrough();
+        }
+      } finally {
+        this.buffer.finishMessage();
+      }
+    }
+
+    if (error !== null) {
+      throw error;
+    }
+  }
+
   async execute(query: string): Promise<void> {
     this._enterOp();
     try {

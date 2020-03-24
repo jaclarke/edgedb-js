@@ -38,7 +38,7 @@ export class RingBuffer<T> {
   }
 
   get full(): boolean {
-    return this.len === this.capacity - 1;
+    return false;
   }
 
   get length(): number {
@@ -46,15 +46,12 @@ export class RingBuffer<T> {
   }
 
   enq(data: T): void {
-    const nextWriter = (this.writer + 1) % this.capacity;
-    if (this.reader === nextWriter) {
-      throw new RingBufferError(
-        `RingBuffer(capacity=${this.capacity}) is full`
-      );
+    if (this.reader === this.writer && this.len > 0) {
+      this._resize();
     }
 
     this.buffer[this.writer] = data;
-    this.writer = nextWriter;
+    this.writer = (this.writer + 1) % this.capacity;
     this.len++;
   }
 
@@ -81,5 +78,18 @@ export class RingBuffer<T> {
     this.reader = 0;
     this.writer = 0;
     this.len = 0;
+  }
+
+  private _resize(): void {
+    const inc = this.capacity;
+    this.capacity += inc;
+    this.buffer.length = this.capacity;
+
+    for (let i = this.reader; i < inc; i++) {
+      this.buffer[i+inc] = this.buffer[i];
+      this.buffer[i] = undefined;
+    }
+
+    this.reader += inc;
   }
 }

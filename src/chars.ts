@@ -54,6 +54,13 @@ export const $p: char = ord("p");
 export const $r: char = ord("r");
 export const $v: char = ord("v");
 
+export const $DUMP: char = ord(">");
+export const $DUMP_HEADER_BLOCK: char = ord("@");
+export const $DUMP_DATA_BLOCK: char = ord("=");
+export const $RESTORE: char = ord("<");
+export const $RESTORE_READY: char = ord("+");
+export const $RESTORE_EOF: char = ord(".");
+
 export function ord(str: string): char {
   const ch: char = str.charCodeAt(0);
   if (ch <= 0 || ch >= 255) {
