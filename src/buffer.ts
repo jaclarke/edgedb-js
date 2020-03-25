@@ -34,6 +34,10 @@ const EMPTY_BUFFER = Buffer.allocUnsafe(0);
 // tslint:disable-next-line
 const isNode12: boolean = !!Buffer["readBigInt64BE"];
 
+export function asInt16(n: number) {
+  return n >= 0x8000 ? n - 0x10000 : n;
+}
+
 export class BufferError extends Error {}
 
 export class WriteBuffer {
@@ -253,6 +257,18 @@ export class WriteMessageBuffer {
       throw new BufferError("cannot writeBuffer: no current message");
     }
     this.buffer.writeBuffer(buf);
+    return this;
+  }
+
+  writeHeaders(headers: [number, any][]): this {
+    if (this.messagePos < 0) {
+      throw new BufferError("cannot writeHeaders: no current message");
+    }
+    this.buffer.writeInt16(headers.length);
+    for (const [key, value] of headers) {
+      this.buffer.writeInt16(key);
+      this.buffer.writeString(String(value));
+    }
     return this;
   }
 
