@@ -79,6 +79,11 @@ export type NodeCallback<T = any> = (
   data: T | null
 ) => void;
 
+export interface TypedQuery<R, A = void> {
+  query: string
+  expectOne: boolean
+}
+
 export default function connect(
   options?: ConnectConfig | null
 ): Promise<AwaitConnection>;
@@ -555,7 +560,8 @@ export class AwaitConnection {
     }
   }
 
-  private async _parse(
+  /** @internal */
+  async _parse(
     query: string,
     asJson: boolean,
     expectOne: boolean
@@ -1039,6 +1045,15 @@ export class AwaitConnection {
     this._enterOp();
     try {
       return await this._fetch(query, args, true, true);
+    } finally {
+      this._leaveOp();
+    }
+  }
+
+  async query<R, A>(query: TypedQuery<R, A>, args: A): Promise<R> {
+    this._enterOp();
+    try {
+      return await this._fetch(query.query, args as unknown as QueryArgs, false, query.expectOne);
     } finally {
       this._leaveOp();
     }

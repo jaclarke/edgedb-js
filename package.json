@@ -17,7 +17,11 @@
   "files": [
     "/dist"
   ],
+  "bin": {
+    "typegen": "./dist/src/typegen.js"
+  },
   "devDependencies": {
+    "@types/glob": "^7.1.1",
     "@types/jest": "^24.0.11",
     "@types/node": "^13.1.6",
     "get-stdin": "^7.0.0",
@@ -36,5 +40,10 @@
     "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
     "gen-errors": "edb gen-errors-json --client | node tools/gen_errors.js",
     "prepublish": "in-publish && yarn lint && yarn build && yarn test || not-in-publish"
+  },
+  "dependencies": {
+    "chalk": "^4.0.0",
+    "glob": "^7.1.6",
+    "yargs": "^15.3.1"
   }
 }

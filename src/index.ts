@@ -27,6 +27,7 @@ export {ObjectShape} from "./datatypes/object";
 export {Set} from "./datatypes/set";
 export {Tuple} from "./datatypes/tuple";
 export {UUID} from "./datatypes/uuid";
+export {TypedQuery} from './client';
 
 export * from "./errors";
 

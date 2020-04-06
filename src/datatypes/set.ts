@@ -16,4 +16,4 @@
  * limitations under the License.
  */
 
-export class Set extends Array {}
+export class Set<T = any> extends Array<T> {}
