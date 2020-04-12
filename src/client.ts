@@ -292,7 +292,7 @@ export class AwaitConnection {
     const errorType = resolveErrorCode(code);
     this.buffer.finishMessage();
 
-    const err = new errorType(message);
+    const err = new errorType(message, attrs);
     return err;
   }
 

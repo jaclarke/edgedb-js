@@ -20,7 +20,11 @@
 
 /* tslint:disable */
 
-export class EdgeDBError extends Error {}
+export class EdgeDBError extends Error {
+  constructor(message?: string, public attrs?: any) {
+    super(message)
+  }
+}
 
 export class InternalServerError extends EdgeDBError {
   get code(): number {

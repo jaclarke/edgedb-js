@@ -20,7 +20,7 @@
 
 import * as errors from "./index";
 
-export type ErrorType = new (msg: string) => errors.EdgeDBError;
+export type ErrorType = new (msg: string, attrs?: any) => errors.EdgeDBError;
 
 export const errorMapping = new Map<number, ErrorType>();
 
