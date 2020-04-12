@@ -17,6 +17,7 @@
  */
 
 import * as net from "net";
+import { EventEmitter } from "events";
 
 import char, * as chars from "./chars";
 import {resolveErrorCode} from "./errors/resolve";
@@ -109,7 +110,11 @@ export default function connect(
   }
 }
 
-export class AwaitConnection {
+export declare interface AwaitConnection {
+  on(event: 'close', listener: () => void): this;
+}
+
+export class AwaitConnection extends EventEmitter {
   private sock: net.Socket;
   private config: NormalizedConnectConfig;
   private paused: boolean;
@@ -137,6 +142,7 @@ export class AwaitConnection {
 
   /** @internal */
   private constructor(sock: net.Socket, config: NormalizedConnectConfig) {
+    super();
     this.buffer = new ReadMessageBuffer();
 
     this.codecsRegistry = new CodecsRegistry();
@@ -164,6 +170,7 @@ export class AwaitConnection {
     this.sock.on("error", this._onError.bind(this));
     this.sock.on("data", this._onData.bind(this));
     this.sock.on("connect", this._onConnect.bind(this));
+    this.sock.on("close", this._onClose.bind(this));
 
     this.config = config;
   }
@@ -204,6 +211,15 @@ export class AwaitConnection {
       this.messageWaiterResolve = null;
       this.messageWaiterReject = null;
     }
+  }
+
+  private _onClose(): void {
+    if (this.messageWaiterReject) {
+      this.messageWaiterReject(new Error('Connection closed'));
+      this.messageWaiterResolve = null;
+      this.messageWaiterReject = null;
+    }
+    this.emit('close');
   }
 
   private _onData(data: Buffer): void {
@@ -1281,7 +1297,7 @@ export class AwaitConnection {
   }
 
   private _abort(): void {
-    if (this.sock && this.connected) {
+    if (this.sock && !this.sock.destroyed) {
       this.sock.destroy();
     }
     this.connected = false;
@@ -1367,7 +1383,7 @@ export class AwaitConnection {
       return conn; // break the connection try loop
     }
 
-    // throw a generic or specific conneciton error
+    // throw a generic or specific connection error
     if (typeof err === "undefined") {
       err = new Error(errMsg);
     }
