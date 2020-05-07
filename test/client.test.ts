@@ -27,7 +27,8 @@ import {
   DivisionByZeroError,
   EdgeDBError,
   MissingRequiredError,
-} from "../src/index";
+  _introspect,
+} from "../src/index.node";
 import {LocalDate, Duration} from "../src/datatypes/datetime";
 import {asyncConnect, connectWithCallback} from "./testbase";
 
@@ -197,6 +198,224 @@ test("fetch: bigint", async () => {
   }
 });
 
+test("fetch: decimal as string", async () => {
+  const con = await asyncConnect();
+
+  // @ts-ignore
+  const registry = con.codecsRegistry;
+  registry.setStringCodecs({decimal: true});
+
+  const vals = [
+    "0.001",
+    "0.001000",
+    "1.0",
+    "1.00000",
+    "0.00000000000000",
+    "1.00000000000000",
+    "-1.00000000000000",
+    "-2.00000000000000",
+    "1000000000000000.00000000000000",
+    "1234000000.00088883231",
+    "1234.00088883231",
+    "3123.23111",
+    "-3123000000.23111",
+    "3123.2311100000",
+    "-03123.0023111",
+    "3123.23111",
+    "3123.23111",
+    "10000.23111",
+    "100000.23111",
+    "1000000.23111",
+    "10000000.23111",
+    "100000000.23111",
+    "1000000000.23111",
+    "1000000000.3111",
+    "1000000000.111",
+    "1000000000.11",
+    "100000000.0",
+    "10000000.0",
+    "1000000.0",
+    "100000.0",
+    "10000.0",
+    "1000.0",
+    "100.0",
+    "100",
+    "100.1",
+    "100.12",
+    "100.123",
+    "100.1234",
+    "100.12345",
+    "100.123456",
+    "100.1234567",
+    "100.12345679",
+    "100.123456790",
+    "100.123456790000000000000000",
+    "1.0",
+    "0.0",
+    "-1.0",
+    "1.0E-1000",
+    "1E1000",
+    "0.000000000000000000000000001",
+    "0.000000000000010000000000001",
+    "0.00000000000000000000000001",
+    "0.00000000100000000000000001",
+    "0.0000000000000000000000001",
+    "0.000000000000000000000001",
+    "0.00000000000000000000001",
+    "0.0000000000000000000001",
+    "0.000000000000000000001",
+    "0.00000000000000000001",
+    "0.0000000000000000001",
+    "0.000000000000000001",
+    "0.00000000000000001",
+    "0.0000000000000001",
+    "0.000000000000001",
+    "0.00000000000001",
+    "0.0000000000001",
+    "0.000000000001",
+    "0.00000000001",
+    "0.0000000001",
+    "0.000000001",
+    "0.00000001",
+    "0.0000001",
+    "0.000001",
+    "0.00001",
+    "0.0001",
+    "0.001",
+    "0.01",
+    "0.1",
+    "-0.000000001",
+    "-0.00000001",
+    "-0.0000001",
+    "-0.000001",
+    "-0.00001",
+    "-0.0001",
+    "-0.001",
+    "-0.01",
+    "-0.1",
+    "0.10",
+    "0.100",
+    "0.1000",
+    "0.10000",
+    "0.100000",
+    "0.00001000",
+    "0.000010000",
+    "0.0000100000",
+    "0.00001000000",
+    "-0.10",
+    "-0.100",
+    "-0.1000",
+    "-0.10000",
+    "-0.100000",
+    "-0.00001000",
+    "-0.000010000",
+    "-0.0000100000",
+    "-0.00001000000",
+    "1" + "0".repeat(117) + "." + "0".repeat(161),
+  ];
+
+  try {
+    const fetched = await con.fetchOne(
+      `
+      WITH
+        inp := <array<str>>$0,
+        dec := <array<decimal>>inp,
+      SELECT
+        (<array<str>>dec, dec)
+    `,
+      [vals]
+    );
+
+    expect(fetched[0].length).toBe(vals.length);
+    for (let i = 0; i < fetched[0].length; i++) {
+      expect(fetched[0][i]).toBe(fetched[1][i]);
+    }
+  } finally {
+    await con.close();
+  }
+});
+
+test("fetch: int64 as string", async () => {
+  const con = await asyncConnect();
+
+  // @ts-ignore
+  const registry = con.codecsRegistry;
+  registry.setStringCodecs({int64: true});
+
+  const vals = [
+    "0",
+    "-0",
+    "1",
+    "-1",
+    "11",
+    "-11",
+    "110000",
+    "-1100000",
+    "113",
+    "1152921504594725865",
+    "-1152921504594725865",
+  ];
+
+  try {
+    const fetched = await con.fetchOne(
+      `
+      WITH
+        inp := <array<str>>$0,
+        dec := <array<int64>>inp,
+      SELECT
+        (<array<str>>dec, dec)
+    `,
+      [vals]
+    );
+
+    expect(fetched[0].length).toBe(vals.length);
+    for (let i = 0; i < fetched[0].length; i++) {
+      expect(fetched[0][i]).toBe(fetched[1][i]);
+    }
+  } finally {
+    await con.close();
+  }
+});
+
+test("fetch: bigint as string", async () => {
+  const con = await asyncConnect();
+
+  // @ts-ignore
+  const registry = con.codecsRegistry;
+  registry.setStringCodecs({bigint: true});
+
+  const vals = [
+    "0",
+    "-0",
+    "1",
+    "-1",
+    "11",
+    "-11",
+    "11001200000031231238172638172637981268371628312300000000",
+    "-11001231231238172638172637981268371628312300",
+  ];
+
+  try {
+    const fetched = await con.fetchOne(
+      `
+      WITH
+        inp := <array<str>>$0,
+        dec := <array<bigint>>inp,
+      SELECT
+        (<array<str>>dec, dec)
+    `,
+      [vals]
+    );
+
+    expect(fetched[0].length).toBe(vals.length);
+    for (let i = 0; i < fetched[0].length; i++) {
+      expect(fetched[0][i]).toBe(fetched[1][i]);
+    }
+  } finally {
+    await con.close();
+  }
+});
+
 test("fetch: positional args", async () => {
   const con = await asyncConnect();
   let res;
@@ -295,8 +514,12 @@ test("fetch: named args", async () => {
         expect(e.toString()).toMatch(/unexpected named argument: "c"/);
       });
 
-    res = await con.fetchOne(`select len(<str>$a ?? "aa")`, {a: null});
-    expect(res).toBe(2);
+    // TODO: uncomment after alpha3:
+    //
+    // res = await con.fetchOne(`select len(<OPTIONAL str>$a ?? "aa")`, {
+    //   a: null,
+    // });
+    // expect(res).toBe(2);
   } finally {
     await con.close();
   }
@@ -503,6 +726,9 @@ test("fetch: tuple", async () => {
     res = await con.fetchAll("select ()");
     expect(res).toEqual([[]]);
 
+    expect(_introspect(res)).toEqual({kind: "set"});
+    expect(_introspect(res[0])).toEqual({kind: "tuple"});
+
     res = await con.fetchOne("select (1,)");
     expect(res).toEqual([1]);
 
@@ -555,6 +781,17 @@ test("fetch: object", async () => {
       filter .name = 'std::str_repeat'
       limit 1
     `);
+
+    expect(_introspect(res.params[0])).toEqual({
+      kind: "object",
+      fields: [
+        {name: "__tid__", implicit: true, linkprop: false},
+        {name: "id", implicit: true, linkprop: false},
+        {name: "kind", implicit: false, linkprop: false},
+        {name: "num", implicit: false, linkprop: false},
+        {name: "@foo", implicit: false, linkprop: true},
+      ],
+    });
 
     expect(JSON.stringify(res)).toEqual(
       JSON.stringify({
@@ -610,7 +847,18 @@ test("fetch: set of arrays", async () => {
       limit 1
     `);
 
+    expect(_introspect(res)).toEqual({
+      kind: "object",
+      fields: [
+        {name: "__tid__", implicit: true, linkprop: false},
+        {name: "id", implicit: false, linkprop: false},
+        {name: "sets", implicit: false, linkprop: false},
+      ],
+    });
+
     res = res.sets;
+    expect(_introspect(res)).toEqual({kind: "set"});
+    expect(_introspect(res[0])).toEqual({kind: "array"});
     expect(res).toEqual([[1, 2], [1]]);
     expect(res.length).toBe(2);
     expect(res instanceof Set).toBeTruthy();
@@ -723,6 +971,11 @@ test("fetch: namedtuple", async () => {
     res = await con.fetchOne("select (a := 1)");
     expect(Array.from(res)).toEqual([1]);
 
+    expect(_introspect(res)).toEqual({
+      kind: "namedtuple",
+      fields: [{name: "a"}],
+    });
+
     res = await con.fetchAll("select (a := 1, b:= 'abc')");
     expect(Array.from(res[0])).toEqual([1, "abc"]);
 
@@ -786,6 +1039,7 @@ test("fetchOne: arrays", async () => {
   try {
     res = await con.fetchOne("select [12312312, -1, 123, 0, 1]");
     expect(res).toEqual([12312312, -1, 123, 0, 1]);
+    expect(_introspect(res)).toEqual({kind: "array"});
 
     res = await con.fetchOne("select ['aaa']");
     expect(res).toEqual(["aaa"]);

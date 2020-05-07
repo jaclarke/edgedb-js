@@ -16,14 +16,9 @@
  * limitations under the License.
  */
 
-import {
-  introspectMethod,
-  IntrospectableType,
-  CollectionInfo,
-} from "./introspect";
+import _connect from "./client";
+export const connect = _connect;
+export default connect;
 
-export class Set extends Array implements IntrospectableType {
-  [introspectMethod](): CollectionInfo {
-    return {kind: "set"};
-  }
-}
+/* Private exports */
+export * from "./index.shared";

@@ -16,12 +16,22 @@
  * limitations under the License.
  */
 
-import {KNOWN_TYPENAMES} from "./codecs";
+import {KNOWN_TYPENAMES} from "./consts";
 
-import {ICodec, Codec, uuid, IArgsCodec} from "./ifaces";
+import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces";
 import {ReadBuffer, WriteBuffer} from "../buffer";
 
-class Tuple extends Array {}
+import {
+  introspectMethod,
+  IntrospectableType,
+  CollectionInfo,
+} from "../datatypes/introspect";
+
+class Tuple extends Array implements IntrospectableType {
+  [introspectMethod](): CollectionInfo {
+    return {kind: "tuple"};
+  }
+}
 
 export class TupleCodec extends Codec implements ICodec, IArgsCodec {
   private subCodecs: ICodec[];
@@ -101,6 +111,14 @@ export class TupleCodec extends Codec implements ICodec, IArgsCodec {
 
     return result;
   }
+
+  getSubcodecs(): ICodec[] {
+    return Array.from(this.subCodecs);
+  }
+
+  getKind(): CodecKind {
+    return "tuple";
+  }
 }
 
 export class EmptyTupleCodec extends Codec implements ICodec {
@@ -130,6 +148,14 @@ export class EmptyTupleCodec extends Codec implements ICodec {
       );
     }
     return new Tuple();
+  }
+
+  getSubcodecs(): ICodec[] {
+    return [];
+  }
+
+  getKind(): CodecKind {
+    return "tuple";
   }
 }
 

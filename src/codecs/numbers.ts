@@ -18,6 +18,7 @@
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
 import {ICodec, ScalarCodec} from "./ifaces";
+import {decodeInt64ToString} from "../compat";
 
 export class Int64Codec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
@@ -30,6 +31,16 @@ export class Int64Codec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return buf.readBigInt64();
+  }
+}
+
+export class Int64StringCodec extends ScalarCodec implements ICodec {
+  encode(_buf: WriteBuffer, _object: any): void {
+    throw new Error("not implemented");
+  }
+
+  decode(buf: ReadBuffer): any {
+    return decodeInt64ToString(buf.readBuffer(8));
   }
 }
 
