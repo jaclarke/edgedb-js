@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 import {decodeInt64ToString} from "../compat";
 
 export class Int64Codec extends ScalarCodec implements ICodec {
@@ -32,6 +32,10 @@ export class Int64Codec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     return buf.readBigInt64();
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'int64'
+  }
 }
 
 export class Int64StringCodec extends ScalarCodec implements ICodec {
@@ -41,6 +45,10 @@ export class Int64StringCodec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return decodeInt64ToString(buf.readBuffer(8));
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'int64'
   }
 }
 
@@ -56,6 +64,10 @@ export class Int32Codec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     return buf.readInt32();
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'int32'
+  }
 }
 
 export class Int16Codec extends ScalarCodec implements ICodec {
@@ -69,6 +81,10 @@ export class Int16Codec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return buf.readInt16();
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'int16'
   }
 }
 
@@ -84,6 +100,10 @@ export class Float32Codec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     return buf.readFloat32();
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'float32'
+  }
 }
 
 export class Float64Codec extends ScalarCodec implements ICodec {
@@ -97,5 +117,9 @@ export class Float64Codec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return buf.readFloat64();
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'float64'
   }
 }

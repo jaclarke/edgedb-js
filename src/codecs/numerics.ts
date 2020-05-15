@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 
 const NUMERIC_POS = 0x0000;
 const NUMERIC_NEG = 0x4000;
@@ -67,6 +67,10 @@ export class BigIntCodec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     return BigInt(decodeBigIntToString(buf));
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'bigint'
+  }
 }
 
 export class BigIntStringCodec extends ScalarCodec implements ICodec {
@@ -77,6 +81,10 @@ export class BigIntStringCodec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     return decodeBigIntToString(buf);
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'bigint'
+  }
 }
 
 export class DecimalStringCodec extends ScalarCodec implements ICodec {
@@ -86,6 +94,10 @@ export class DecimalStringCodec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return decodeDecimalToString(buf);
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'decimal'
   }
 }
 
@@ -248,5 +260,9 @@ export class DecimalCodec extends ScalarCodec implements ICodec {
     }${
       digits.slice(0, -dscale).replace(/^0+/, '')||'0'
     }.${digits.slice(-dscale)}`
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'decimal'
   }
 }

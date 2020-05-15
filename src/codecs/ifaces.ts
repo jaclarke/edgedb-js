@@ -29,6 +29,26 @@ export type CodecKind =
   | "set"
   | "scalar";
 
+export type BaseScalarName = 
+  | "uuid"
+  | "str"
+  | "bytes"
+  | "int16"
+  | "int32"
+  | "int64"
+  | "float32"
+  | "float64"
+  | "decimal"
+  | "bool"
+  | "datetime"
+  | "localdatetime"
+  | "localdate"
+  | "localtime"
+  | "duration"
+  | "json"
+  | "bigint"
+  | "enum"
+
 export interface ICodec {
   readonly tid: uuid;
   readonly tidBuffer: Buffer;
@@ -92,4 +112,6 @@ export abstract class ScalarCodec extends Codec {
 
     return KNOWN_TYPES.get(this.tid) || "anytype";
   }
+
+  abstract getBaseScalarName(): BaseScalarName
 }

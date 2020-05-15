@@ -58,7 +58,9 @@ export class CodecsRegistry {
   private codecs: LRU<uuid, ICodec>;
   private customScalarCodecs: Map<uuid, ICodec>;
 
-  constructor() {
+  constructor(
+    private typeData?: LRU<uuid, Buffer>
+  ) {
     this.codecs = new LRU({capacity: CODECS_CACHE_SIZE});
     this.codecsBuildCache = new LRU({capacity: CODECS_BUILD_CACHE_SIZE});
     this.customScalarCodecs = new Map();
@@ -120,7 +122,7 @@ export class CodecsRegistry {
     return null;
   }
 
-  buildCodec(spec: Buffer): ICodec {
+  buildCodec(typeId: uuid, spec: Buffer): ICodec {
     const frb = new ReadBuffer(spec);
     const codecsList: ICodec[] = [];
     let codec: ICodec | null = null;
@@ -137,6 +139,8 @@ export class CodecsRegistry {
     if (codec == null) {
       throw new Error("could not build a codec");
     }
+
+    this.typeData?.set(typeId, spec);
 
     return codec;
   }
@@ -365,15 +369,13 @@ export class CodecsRegistry {
       }
 
       case CTYPE_ENUM: {
-        /* There's no way to customize ordering in JS, so we
-           simply ignore that information and unpack enums into
-           simple strings.
-        */
         const els = frb.readUInt16();
+        const members: string[] = new Array(els);
         for (let i = 0; i < els; i++) {
-          frb.discard(frb.readUInt32());
+          const strLen = frb.readUInt32();
+          members[i] = frb.readBuffer(strLen).toString("utf8");
         }
-        res = new EnumCodec(tid);
+        res = new EnumCodec(tid, members);
         break;
       }
     }

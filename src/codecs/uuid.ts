@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 import {UUID, UUIDBufferFromString} from "../datatypes/uuid";
 
 export class UUIDCodec extends ScalarCodec implements ICodec {
@@ -38,5 +38,9 @@ export class UUIDCodec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return new UUID(buf.readBuffer(16));
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'uuid'
   }
 }

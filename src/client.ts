@@ -21,7 +21,7 @@ import { EventEmitter } from "events";
 
 import char, * as chars from "./chars";
 import {resolveErrorCode} from "./errors/resolve";
-import {ReadMessageBuffer, WriteMessageBuffer, ReadBuffer, asInt16} from "./buffer";
+import {ReadMessageBuffer, WriteMessageBuffer, ReadBuffer, asInt16, WriteBuffer} from "./buffer";
 import {CodecsRegistry} from "./codecs/registry";
 import {ICodec, uuid} from "./codecs/ifaces";
 import {Set} from "./datatypes/set";
@@ -141,11 +141,11 @@ export class AwaitConnection extends EventEmitter {
   private opInProgress: boolean = false;
 
   /** @internal */
-  private constructor(sock: net.Socket, config: NormalizedConnectConfig) {
+  private constructor(sock: net.Socket, config: NormalizedConnectConfig, codecsRegistry?: CodecsRegistry) {
     super();
     this.buffer = new ReadMessageBuffer();
 
-    this.codecsRegistry = new CodecsRegistry();
+    this.codecsRegistry = codecsRegistry ?? new CodecsRegistry();
     this.queryCodecCache = new LRU({capacity: 1000});
 
     this.lastStatus = null;
@@ -282,12 +282,12 @@ export class AwaitConnection extends EventEmitter {
 
     let inCodec = this.codecsRegistry.getCodec(inTypeId);
     if (inCodec == null) {
-      inCodec = this.codecsRegistry.buildCodec(inTypeData);
+      inCodec = this.codecsRegistry.buildCodec(inTypeId, inTypeData);
     }
 
     let outCodec = this.codecsRegistry.getCodec(outTypeId);
     if (outCodec == null) {
-      outCodec = this.codecsRegistry.buildCodec(outTypeData);
+      outCodec = this.codecsRegistry.buildCodec(outTypeId, outTypeData);
     }
 
     return [cardinality, inCodec, outCodec];
@@ -332,7 +332,7 @@ export class AwaitConnection extends EventEmitter {
     this.buffer.finishMessage();
   }
 
-  private _parseDataMessages(codec: ICodec, result: Set): void {
+  private _parseDataMessages(codec: ICodec, result: Set | WriteBuffer): void {
     const frb = ReadBuffer.alloc();
     const $D = chars.$D;
     const buffer = this.buffer;
@@ -340,7 +340,13 @@ export class AwaitConnection extends EventEmitter {
     while (buffer.takeMessageType($D)) {
       buffer.consumeMessageInto(frb);
       frb.discard(6);
-      result.push(codec.decode(frb));
+      if (result instanceof Set) {
+        result.push(codec.decode(frb));
+      } else {
+        const buf = frb.consumeAsBuffer();
+        result.writeUInt32(buf.length);
+        result.writeBuffer(buf);
+      }
       frb.finish();
     }
   }
@@ -732,8 +738,9 @@ export class AwaitConnection extends EventEmitter {
   private async _executeFlow(
     args: QueryArgs,
     inCodec: ICodec,
-    outCodec: ICodec
-  ): Promise<any[]> {
+    outCodec: ICodec,
+    rawOutput: boolean = false,
+  ): Promise<any> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$E)
       .writeInt16(0) // no headers
@@ -744,7 +751,7 @@ export class AwaitConnection extends EventEmitter {
 
     this.sock.write(wb.unwrap());
 
-    const result = new Set();
+    const result = rawOutput ? new WriteBuffer() : new Set();
     let parsing = true;
     let error: Error | null = null;
 
@@ -805,7 +812,8 @@ export class AwaitConnection extends EventEmitter {
     inCodec: ICodec,
     outCodec: ICodec,
     query: string,
-    implicitLimit: number = 0
+    implicitLimit: number = 0,
+    rawOutput: boolean = false,
   ): Promise<any> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$O);
@@ -825,7 +833,7 @@ export class AwaitConnection extends EventEmitter {
 
     this.sock.write(wb.unwrap());
 
-    const result = new Set();
+    const result = rawOutput ? new WriteBuffer() : new Set();
     let reExec = false;
     let error: Error | null = null;
     let parsing = true;
@@ -892,7 +900,7 @@ export class AwaitConnection extends EventEmitter {
 
     if (reExec) {
       this._validateFetchCardinality(newCard!, asJson, expectOne);
-      return await this._executeFlow(args, inCodec, outCodec);
+      return await this._executeFlow(args, inCodec, outCodec, rawOutput);
     }
 
     return result;
@@ -922,10 +930,13 @@ export class AwaitConnection extends EventEmitter {
     args: QueryArgs,
     asJson: boolean,
     expectOne: boolean,
-    implicitLimit?: number
+    implicitLimit?: number,
+    rawOutput: boolean = false,
   ): Promise<any> {
     const key = this._getQueryCacheKey(query, asJson, expectOne);
-    let ret;
+    let ret,
+        iCodec: ICodec,
+        oCodec: ICodec
 
     if (this.queryCodecCache.has(key)) {
       const [card, inCodec, outCodec] = this.queryCodecCache.get(key)!;
@@ -937,8 +948,11 @@ export class AwaitConnection extends EventEmitter {
         inCodec,
         outCodec,
         query,
-        implicitLimit
+        implicitLimit,
+        rawOutput
       );
+      iCodec = inCodec;
+      oCodec = outCodec;
     } else {
       const [card, inCodec, outCodec] = await this._parse(
         query,
@@ -948,7 +962,17 @@ export class AwaitConnection extends EventEmitter {
       );
       this._validateFetchCardinality(card, asJson, expectOne);
       this.queryCodecCache.set(key, [card, inCodec, outCodec]);
-      ret = await this._executeFlow(args, inCodec, outCodec);
+      ret = await this._executeFlow(args, inCodec, outCodec, rawOutput);
+      iCodec = inCodec;
+      oCodec = outCodec;
+    }
+
+    if (rawOutput) {
+      return [
+        (ret as WriteBuffer).unwrap(),
+        iCodec.tid,
+        oCodec.tid
+      ]
     }
 
     if (expectOne) {
@@ -1296,6 +1320,17 @@ export class AwaitConnection extends EventEmitter {
     }
   }
 
+  async _fetchAllRaw(query: string, args: QueryArgs = null, options?: QueryOpts)
+    : Promise<{result: Buffer, inTypeId: uuid, outTypeId: uuid}> {
+    this._enterOp();
+    try {
+      const [result, inTypeId, outTypeId] = await this._fetch(query, args, false, false, options?.implicitLimit, true);
+      return {result, inTypeId, outTypeId};
+    } finally {
+      this._leaveOp();
+    }
+  }
+
   private _abort(): void {
     if (this.sock && !this.sock.destroyed) {
       this.sock.destroy();
@@ -1346,7 +1381,7 @@ export class AwaitConnection extends EventEmitter {
         "failed to connect: could not establish connection to " +
         (typeof addr === "string" ? addr : addr[0] + ":" + addr[1]);
       const sock = this.newSock(addr);
-      const conn = new this(sock, {addrs: [addr], ...cfg});
+      const conn = new this(sock, {addrs: [addr], ...cfg}, config._codecRegistry);
 
       const connPromise = conn.connect();
       let timeout = null;

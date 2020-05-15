@@ -22,6 +22,7 @@ import {
   generateType,
   ObjectConstructor,
   EDGE_POINTER_IS_LINKPROP,
+  EDGE_POINTER_IS_IMPLICIT,
 } from "../datatypes/object";
 
 export class ObjectCodec extends Codec implements ICodec {
@@ -82,12 +83,14 @@ export class ObjectCodec extends Codec implements ICodec {
     return result;
   }
 
-  getSubcodecs(): ICodec[] {
-    return Array.from(this.codecs);
+  getSubcodecs(includeImplicit = false): ICodec[] {
+    return includeImplicit ? Array.from(this.codecs) :
+      this.codecs.filter((_, i) => !(this.flags[i] & EDGE_POINTER_IS_IMPLICIT));
   }
 
-  getSubcodecsNames(): string[] {
-    return Array.from(this.names);
+  getSubcodecsNames(includeImplicit = false): string[] {
+    return includeImplicit ? Array.from(this.names) :
+      this.names.filter((_, i) => !(this.flags[i] & EDGE_POINTER_IS_IMPLICIT));
   }
 
   getKind(): CodecKind {

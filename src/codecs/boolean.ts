@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 
 export class BoolCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
@@ -31,5 +31,9 @@ export class BoolCodec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return buf.readUInt8() !== 0;
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'bool'
   }
 }

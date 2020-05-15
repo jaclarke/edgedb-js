@@ -21,6 +21,7 @@ import {inspect} from "../compat";
 export class UUID {
   private _buf: Buffer;
   private _str: string | null = null;
+  private _rawStr: string | null = null;
 
   constructor(buffer: Buffer) {
     if (buffer.length !== 16) {
@@ -30,6 +31,10 @@ export class UUID {
       );
     }
     this._buf = buffer;
+  }
+
+  toRawString(): string {
+    return this._rawStr ?? (this._rawStr = this._buf.toString("hex"));
   }
 
   toString(): string {

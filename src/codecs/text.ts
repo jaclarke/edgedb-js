@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 
 export class StrCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
@@ -33,5 +33,9 @@ export class StrCodec extends ScalarCodec implements ICodec {
 
   decode(buf: ReadBuffer): any {
     return buf.consumeAsString();
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'str'
   }
 }

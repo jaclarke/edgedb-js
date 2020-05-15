@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 import {
   LocalDateTime,
   LocalDate,
@@ -51,6 +51,10 @@ export class DateTimeCodec extends ScalarCodec implements ICodec {
     const ms = Number(us) / 1000.0;
     return new Date(ms + TIMESHIFT);
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'datetime'
+  }
 }
 
 export class LocalDateTimeCodec extends ScalarCodec implements ICodec {
@@ -74,6 +78,10 @@ export class LocalDateTimeCodec extends ScalarCodec implements ICodec {
       (DATE_PRIVATE as unknown) as number
     );
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'localdatetime'
+  }
 }
 
 export class LocalDateCodec extends ScalarCodec implements ICodec {
@@ -90,6 +98,10 @@ export class LocalDateCodec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     const ord = buf.readInt32();
     return LocalDate.fromOrdinal(ord + DATESHIFT_ORD);
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'localdate'
   }
 }
 
@@ -118,6 +130,10 @@ export class LocalTimeCodec extends ScalarCodec implements ICodec {
     minutes = Math.floor(minutes % 60);
     return new LocalTime(hours, minutes, seconds, ms);
   }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'localtime'
+  }
 }
 
 export class DurationCodec extends ScalarCodec implements ICodec {
@@ -142,5 +158,9 @@ export class DurationCodec extends ScalarCodec implements ICodec {
       throw new Error("non-zero reserved bytes in duration");
     }
     return Duration.fromMicroseconds(us as bigint);
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'duration'
   }
 }

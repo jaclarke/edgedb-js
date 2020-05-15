@@ -17,7 +17,7 @@
  */
 
 import {ReadBuffer, WriteBuffer} from "../buffer";
-import {ICodec, ScalarCodec} from "./ifaces";
+import {ICodec, ScalarCodec, BaseScalarName} from "./ifaces";
 
 export class JSONCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
@@ -38,5 +38,9 @@ export class JSONCodec extends ScalarCodec implements ICodec {
       throw new Error(`unexpected JSON format ${format}`);
     }
     return buf.consumeAsString();
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'json'
   }
 }

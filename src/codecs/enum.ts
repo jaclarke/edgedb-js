@@ -16,7 +16,19 @@
  * limitations under the License.
  */
 
-import {ICodec} from "./ifaces";
+import {ICodec, uuid, BaseScalarName} from "./ifaces";
 import {StrCodec} from "./text";
 
-export class EnumCodec extends StrCodec implements ICodec {}
+export class EnumCodec extends StrCodec implements ICodec {
+  constructor(
+           tid: uuid,
+    public members: string[],
+           derivedFromTid: uuid | null = null
+  ) {
+    super(tid, derivedFromTid);
+  }
+
+  getBaseScalarName(): BaseScalarName {
+    return 'enum'
+  }
+}

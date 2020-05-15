@@ -17,6 +17,7 @@
  */
 import * as path from "path";
 import * as url from "url";
+import { CodecsRegistry } from "./codecs/registry";
 
 const EDGEDB_PORT = 5656;
 
@@ -43,6 +44,7 @@ export interface ConnectConfig {
   timeout?: number;
   command_timeout?: number;
   server_settings?: any;
+  _codecRegistry?: CodecsRegistry;
 }
 
 function mapParseInt(x: any): number {
