@@ -73,7 +73,7 @@ enum AuthenticationStatuses {
   AUTH_SASL_FINAL = 12,
 }
 
-enum TransactionStatus {
+export enum TransactionStatus {
   TRANS_IDLE = 0, // connection idle
   TRANS_ACTIVE = 1, // command in progress
   TRANS_INTRANS = 2, // idle, within transaction block
@@ -112,6 +112,7 @@ export default function connect(
 
 export declare interface AwaitConnection {
   on(event: 'close', listener: () => void): this;
+  on(event: 'transactionStateChanged', listener: (state: TransactionStatus) => void): this;
 }
 
 export class AwaitConnection extends EventEmitter {
@@ -127,7 +128,7 @@ export class AwaitConnection extends EventEmitter {
 
   private serverSecret: Buffer | null;
   private serverSettings: Map<string, string>;
-  private serverXactStatus: TransactionStatus;
+  private _serverXactStatus: TransactionStatus;
 
   private buffer: ReadMessageBuffer;
 
@@ -152,7 +153,7 @@ export class AwaitConnection extends EventEmitter {
 
     this.serverSecret = null;
     this.serverSettings = new Map<string, string>();
-    this.serverXactStatus = TransactionStatus.TRANS_UNKNOWN;
+    this._serverXactStatus = TransactionStatus.TRANS_UNKNOWN;
 
     this.messageWaiterResolve = null;
     this.messageWaiterReject = null;
@@ -173,6 +174,15 @@ export class AwaitConnection extends EventEmitter {
     this.sock.on("close", this._onClose.bind(this));
 
     this.config = config;
+  }
+
+  get serverTransactionState() {
+    return this._serverXactStatus
+  }
+
+  private set serverXactStatus(status: TransactionStatus) {
+    this._serverXactStatus = status
+    this.emit('transactionStateChanged', status)
   }
 
   private async _waitForMessage(): Promise<void> {
